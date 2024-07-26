@@ -20,6 +20,80 @@ package.json:
 
 
 
+
+
+
+
+src/app.js:
+import express from 'express';
+import { engine } from 'express-handlebars';
+import { Server as HttpServer } from 'http';
+import { Server as IoServer } from 'socket.io';
+import productsRouter, { productos } from './routes/products.router.js'; // Importa productos
+import cartsRouter from './routes/carts.router.js';
+
+const app = express();
+const httpServer = new HttpServer(app);
+const io = new IoServer(httpServer);
+
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
+
+// Configuración de handlebars
+app.engine('handlebars', engine({
+    extname: '.handlebars',
+    defaultLayout: 'main',
+}));
+app.set('view engine', 'handlebars');
+app.set('views', './views');
+
+// Rutas
+app.use('/api/products', productsRouter);
+app.use('/api/carts', cartsRouter);
+
+// Rutas para vistas
+app.get('/form', (req, res) => {
+    res.render('form');
+});
+
+app.get('/realtimeproducts', (req, res) => {
+    res.render('realtimeproducts');
+});
+
+// Configura el servidor para escuchar
+httpServer.listen(8080, () => {
+    console.log('Server is running on port 8080');
+});
+
+// Socket.io
+io.on('connection', (socket) => {
+    console.log('New client connected');
+
+    // Envía la lista de productos al cliente
+    socket.emit('updateProducts', productos);
+
+    socket.on('addProduct', (product) => {
+        productos.push(product);
+        io.emit('updateProducts', productos);
+    });
+
+    socket.on('deleteProduct', (productId) => {
+        productos = productos.filter(product => product.id !== productId);
+        io.emit('updateProducts', productos);
+    });
+});
+
+
+
+
+
+
+
+
+
+
 src/routes/carts.router.js:
 import express from 'express';
 import fs from 'fs/promises';
@@ -116,6 +190,10 @@ router.post('/:cid/product/:pid', async (req, res) => {
 });
 
 export default router;
+
+
+
+
 
 
 
@@ -242,70 +320,6 @@ export default router;
 
 
 
-src/app.js:
-import express from 'express';
-import { engine } from 'express-handlebars';
-import { Server as HttpServer } from 'http';
-import { Server as IoServer } from 'socket.io';
-import productsRouter, { productos } from './routes/products.router.js'; // Importa productos
-import cartsRouter from './routes/carts.router.js';
-
-const app = express();
-const httpServer = new HttpServer(app);
-const io = new IoServer(httpServer);
-
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public'));
-
-// Configuración de handlebars
-app.engine('handlebars', engine({
-    extname: '.handlebars',
-    defaultLayout: 'main',
-}));
-app.set('view engine', 'handlebars');
-app.set('views', './views');
-
-// Rutas
-app.use('/api/products', productsRouter);
-app.use('/api/carts', cartsRouter);
-
-// Rutas para vistas
-app.get('/form', (req, res) => {
-    res.render('form');
-});
-
-app.get('/realtimeproducts', (req, res) => {
-    res.render('realtimeproducts');
-});
-
-// Configura el servidor para escuchar
-httpServer.listen(8080, () => {
-    console.log('Server is running on port 8080');
-});
-
-// Socket.io
-io.on('connection', (socket) => {
-    console.log('New client connected');
-
-    // Envía la lista de productos al cliente
-    socket.emit('updateProducts', productos);
-
-    socket.on('addProduct', (product) => {
-        productos.push(product);
-        io.emit('updateProducts', productos);
-    });
-
-    socket.on('deleteProduct', (productId) => {
-        productos = productos.filter(product => product.id !== productId);
-        io.emit('updateProducts', productos);
-    });
-});
-
-
-
-
 
 
 
@@ -321,6 +335,8 @@ views/layouts/main.handlebars:
     {{{body}}}
 </body>
 </html>
+
+
 
 
 
@@ -387,6 +403,7 @@ views/form.handlebars:
 
 
 
+
 views/realtimeproducts.handlebars
 <h1>Productos en Tiempo Real</h1>
 <ul id="productList"></ul>
@@ -413,6 +430,7 @@ views/realtimeproducts.handlebars
 
 
 
+
 carritos.json:
 []
 
@@ -426,14 +444,14 @@ productos.json:
 [
   {
     "id": 1,
-    "title": "1",
-    "description": "1",
-    "code": "1",
-    "price": "1",
+    "title": "titulo",
+    "description": "descripcion",
+    "code": "codigo",
+    "price": "123",
     "status": true,
-    "stock": "1",
-    "category": "1",
-    "thumbnails": "1"
+    "stock": "321",
+    "category": "categoria",
+    "thumbnails": "thu"
   },
   {
     "id": 2,
@@ -445,27 +463,5 @@ productos.json:
     "stock": "2",
     "category": "2",
     "thumbnails": "2"
-  },
-  {
-    "id": 3,
-    "title": "3",
-    "description": "3",
-    "code": "3",
-    "price": "3",
-    "status": true,
-    "stock": "3",
-    "category": "3",
-    "thumbnails": "3"
-  },
-  {
-    "id": 4,
-    "title": "4",
-    "description": "4",
-    "code": "4",
-    "price": "4",
-    "status": true,
-    "stock": "4",
-    "category": "4",
-    "thumbnails": "4"
   }
 ]
