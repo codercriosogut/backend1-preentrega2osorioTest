@@ -1,5 +1,5 @@
 import express from 'express';
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 
 const router = express.Router();
 

@@ -76,14 +76,15 @@ io.on('connection', (socket) => {
 
     socket.on('addProduct', (product) => {
         productos.push(product);
-        io.emit('updateProducts', productos);
+        io.emit('updateProducts', productos); // Emite la actualización a todos los clientes
     });
 
     socket.on('deleteProduct', (productId) => {
         productos = productos.filter(product => product.id !== productId);
-        io.emit('updateProducts', productos);
+        io.emit('updateProducts', productos); // Emite la actualización a todos los clientes
     });
 });
+
 
 
 
@@ -190,6 +191,7 @@ router.post('/:cid/product/:pid', async (req, res) => {
 });
 
 export default router;
+
 
 
 
@@ -323,6 +325,7 @@ export default router;
 
 
 
+
 views/layouts/main.handlebars:
 <!DOCTYPE html>
 <html lang="en">
@@ -405,23 +408,43 @@ views/form.handlebars:
 
 
 views/realtimeproducts.handlebars
-<h1>Productos en Tiempo Real</h1>
-<ul id="productList"></ul>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h1>Productos en Tiempo Real</h1>
+    <ul id="productList"></ul>
 
-<script src="/socket.io/socket.io.js"></script>
-<script>
-    const socket = io();
-    const productList = document.getElementById('productList');
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const productList = document.getElementById('productList');
 
-    socket.on('updateProducts', (productos) => {
-        productList.innerHTML = '';
-        productos.forEach(product => {
-            const li = document.createElement('li');
-            li.textContent = `${product.title} - ${product.description}`;
-            productList.appendChild(li);
+        // Función para actualizar la lista de productos
+        function updateProductList(productos) {
+            productList.innerHTML = '';
+            productos.forEach(product => {
+                const li = document.createElement('li');
+                li.textContent = `${product.title} - ${product.description}`;
+                productList.appendChild(li);
+            });
+        }
+
+        // Escucha el evento 'updateProducts' y actualiza la lista
+        socket.on('updateProducts', (productos) => {
+            updateProductList(productos);
         });
-    });
-</script>
+
+        // Solicita la lista de productos al cargar la página
+        socket.emit('requestProducts');
+    </script>
+</body>
+</html>
+
 
 
 

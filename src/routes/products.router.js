@@ -1,9 +1,9 @@
 import express from 'express';
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 
 const router = express.Router();
 
-export let productos = [];
+let productos = [];
 let currentId = 1;
 
 async function readProductos() {

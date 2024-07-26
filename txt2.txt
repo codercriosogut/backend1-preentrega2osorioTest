@@ -1,9 +1,56 @@
+app.js
+
+// Rutas para vistas
+app.get('/form', (req, res) => {
+    res.render('form');
+});
+
+app.get('/realtimeproducts', (req, res) => {
+    res.render('realtimeproducts');
+});
+
+io.on('connection', (socket) => {
+    console.log('New client connected');
+
+    // Envía la lista de productos al cliente al conectarse
+    socket.emit('updateProducts', productos);
+
+    socket.on('addProduct', (product) => {
+        productos.push(product);
+        io.emit('updateProducts', productos); // Emite la actualización a todos los clientes
+    });
+
+    socket.on('deleteProduct', (productId) => {
+        productos = productos.filter(product => product.id !== productId);
+        io.emit('updateProducts', productos); // Emite la actualización a todos los clientes
+    });
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+relatime
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Productos en Tiempo Real</title>
+    <title>Document</title>
 </head>
 <body>
     <h1>Productos en Tiempo Real</h1>
@@ -14,6 +61,7 @@
         const socket = io();
         const productList = document.getElementById('productList');
 
+        // Función para actualizar la lista de productos
         function updateProductList(productos) {
             productList.innerHTML = '';
             productos.forEach(product => {
@@ -26,15 +74,19 @@
             });
         }
 
+        // Función para eliminar un producto
         function deleteProduct(productId) {
             socket.emit('deleteProduct', productId);
         }
 
+        // Escucha el evento 'updateProducts' y actualiza la lista
         socket.on('updateProducts', (productos) => {
             updateProductList(productos);
         });
 
+        // Solicita la lista de productos al cargar la página
         socket.emit('requestProducts');
     </script>
 </body>
 </html>
+
