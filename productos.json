@@ -1,14 +1,14 @@
 [
   {
     "id": 1,
-    "title": "1",
-    "description": "1",
-    "code": "1",
-    "price": "1",
+    "title": "titulo",
+    "description": "descripcion",
+    "code": "codigo",
+    "price": "123",
     "status": true,
-    "stock": "1",
-    "category": "1",
-    "thumbnails": "1"
+    "stock": "321",
+    "category": "categoria",
+    "thumbnails": "thu"
   },
   {
     "id": 2,
@@ -20,16 +20,5 @@
     "stock": "2",
     "category": "2",
     "thumbnails": "2"
-  },
-  {
-    "id": 3,
-    "title": "3",
-    "description": "3",
-    "code": "3",
-    "price": "3",
-    "status": true,
-    "stock": "3",
-    "category": "3",
-    "thumbnails": "3"
   }
 ]

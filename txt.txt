@@ -1,0 +1,471 @@
+package.json:
+{
+  "name": "version1",
+  "version": "1.0.0",
+  "main": "src/app.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/app.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "express-handlebars": "^7.1.3",
+    "socket.io": "^4.7.5"
+  },
+  "description": ""
+}
+
+
+
+
+
+
+src/routes/carts.router.js:
+import express from 'express';
+import fs from 'fs/promises';
+
+const router = express.Router();
+
+let carritos = [];
+let currentCartId = 1;
+let productos = [];
+
+async function readCarritos() {
+    try {
+        const data = await fs.readFile('carritos.json', 'utf8');
+        carritos = JSON.parse(data);
+        currentCartId = carritos.length ? Math.max(...carritos.map(c => c.id)) + 1 : 1;
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            await fs.writeFile('carritos.json', JSON.stringify([]));
+        } else {
+            console.error("Error al leer el archivo", error);
+        }
+    }
+}
+
+async function writeCarritos() {
+    try {
+        await fs.writeFile('carritos.json', JSON.stringify(carritos, null, 2));
+    } catch (error) {
+        console.error("Error al escribir en el archivo", error);
+    }
+}
+
+readCarritos();
+
+router.post('/', async (req, res) => {
+    const nuevoCarrito = {
+        id: currentCartId++,
+        products: []
+    };
+
+    carritos.push(nuevoCarrito);
+    await writeCarritos();
+    res.status(201).json(nuevoCarrito);
+});
+
+router.get('/', (req, res) => {
+    const carritosConDetalles = carritos.map(carrito => {
+        const productosDetallados = carrito.products.map(item => {
+            const producto = productos.find(p => p.id === item.product);
+            return { ...producto, quantity: item.quantity };
+        });
+        return { ...carrito, products: productosDetallados };
+    });
+    res.json(carritosConDetalles);
+});
+
+router.get('/:cid', (req, res) => {
+    const carritoID = parseInt(req.params.cid);
+    const carrito = carritos.find((carrito) => carrito.id === carritoID);
+    if (carrito) {
+        const productosDetallados = carrito.products.map(item => {
+            const producto = productos.find(p => p.id === item.product);
+            return { ...producto, quantity: item.quantity };
+        });
+        res.json(productosDetallados);
+    } else {
+        res.status(404).json({ mensaje: "Carrito no encontrado" });
+    }
+});
+
+router.post('/:cid/product/:pid', async (req, res) => {
+    const carritoID = parseInt(req.params.cid);
+    const productoID = parseInt(req.params.pid);
+
+    const carrito = carritos.find((carrito) => carrito.id === carritoID);
+    if (!carrito) {
+        return res.status(404).json({ mensaje: "Carrito no encontrado" });
+    }
+
+    const producto = productos.find((producto) => producto.id === productoID);
+    if (!producto) {
+        return res.status(404).json({ mensaje: "Producto no encontrado" });
+    }
+
+    const item = carrito.products.find(p => p.product === productoID);
+    if (item) {
+        item.quantity += 1;
+    } else {
+        carrito.products.push({ product: productoID, quantity: 1 });
+    }
+
+    await writeCarritos();
+    res.status(201).json(carrito);
+});
+
+export default router;
+
+
+
+
+
+
+src/routes/products.router.js:
+import express from 'express';
+import fs from 'fs/promises';
+
+const router = express.Router();
+
+export let productos = [];
+let currentId = 1;
+
+async function readProductos() {
+    try {
+        const data = await fs.readFile('productos.json', 'utf8');
+        productos = JSON.parse(data);
+        currentId = productos.length ? Math.max(...productos.map(p => p.id)) + 1 : 1;
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            await fs.writeFile('productos.json', JSON.stringify([]));
+        } else {
+            console.error("Error al leer el archivo", error);
+        }
+    }
+}
+
+async function writeProductos() {
+    try {
+        await fs.writeFile('productos.json', JSON.stringify(productos, null, 2));
+    } catch (error) {
+        console.error("Error al escribir en el archivo", error);
+    }
+}
+
+readProductos();
+
+router.get('/', (req, res) => {
+    res.json(productos);
+});
+
+router.get('/:pid', (req, res) => {
+    const productoID = parseInt(req.params.pid);
+    const producto = productos.find((producto) => producto.id === productoID);
+    if (producto) {
+        res.json(producto);
+    } else {
+        res.status(404).json({ mensaje: "Producto no encontrado" });
+    }
+});
+
+router.post('/', async (req, res) => {
+    const { title, description, code, price, stock, category, thumbnails } = req.body;
+
+    if (!title || !description || !code || !price || !stock || !category) {
+        return res.status(400).json({
+            mensajes: [
+                "Debe ingresar todos los campos: title, description, code, price, stock, category",
+                "A excepción de thumbnails y status que por defecto es true",
+            ]
+        });
+    }
+
+    const nuevoProducto = {
+        id: currentId++,
+        title,
+        description,
+        code,
+        price,
+        status: true,
+        stock,
+        category,
+        thumbnails: thumbnails || []
+    };
+
+    productos.push(nuevoProducto);
+    await writeProductos();
+    res.status(201).json(nuevoProducto);
+});
+
+router.put('/:pid', async (req, res) => {
+    const productoID = parseInt(req.params.pid);
+    const producto = productos.find((producto) => producto.id === productoID);
+
+    if (producto) {
+        const { title, description, code, price, stock, category, thumbnails, status } = req.body;
+
+        if (title !== undefined) producto.title = title;
+        if (description !== undefined) producto.description = description;
+        if (code !== undefined) producto.code = code;
+        if (price !== undefined) producto.price = price;
+        if (stock !== undefined) producto.stock = stock;
+        if (category !== undefined) producto.category = category;
+        if (thumbnails !== undefined) producto.thumbnails = thumbnails;
+        if (status !== undefined) producto.status = status;
+
+        await writeProductos();
+        res.json(producto);
+    } else {
+        res.status(404).json({ mensaje: "Producto no encontrado" });
+    }
+});
+
+router.delete('/:pid', async (req, res) => {
+    const productoID = parseInt(req.params.pid);
+    const productoIndex = productos.findIndex((producto) => producto.id === productoID);
+
+    if (productoIndex !== -1) {
+        productos.splice(productoIndex, 1);
+        await writeProductos();
+        res.json({ mensaje: `Producto ${productoID} eliminado` });
+    } else {
+        res.status(404).json({ mensaje: "Producto no encontrado" });
+    }
+});
+
+export default router;
+
+
+
+
+
+
+
+src/app.js:
+import express from 'express';
+import { engine } from 'express-handlebars';
+import { Server as HttpServer } from 'http';
+import { Server as IoServer } from 'socket.io';
+import productsRouter, { productos } from './routes/products.router.js'; // Importa productos
+import cartsRouter from './routes/carts.router.js';
+
+const app = express();
+const httpServer = new HttpServer(app);
+const io = new IoServer(httpServer);
+
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
+
+// Configuración de handlebars
+app.engine('handlebars', engine({
+    extname: '.handlebars',
+    defaultLayout: 'main',
+}));
+app.set('view engine', 'handlebars');
+app.set('views', './views');
+
+// Rutas
+app.use('/api/products', productsRouter);
+app.use('/api/carts', cartsRouter);
+
+// Rutas para vistas
+app.get('/form', (req, res) => {
+    res.render('form');
+});
+
+app.get('/realtimeproducts', (req, res) => {
+    res.render('realtimeproducts');
+});
+
+// Configura el servidor para escuchar
+httpServer.listen(8080, () => {
+    console.log('Server is running on port 8080');
+});
+
+// Socket.io
+io.on('connection', (socket) => {
+    console.log('New client connected');
+
+    // Envía la lista de productos al cliente
+    socket.emit('updateProducts', productos);
+
+    socket.on('addProduct', (product) => {
+        productos.push(product);
+        io.emit('updateProducts', productos);
+    });
+
+    socket.on('deleteProduct', (productId) => {
+        productos = productos.filter(product => product.id !== productId);
+        io.emit('updateProducts', productos);
+    });
+});
+
+
+
+
+
+
+
+views/layouts/main.handlebars:
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    {{{body}}}
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+views/form.handlebars:
+<h1>Agregar Producto</h1>
+<form id="productForm">
+    <label for="title">Título:</label>
+    <input type="text" id="title" name="title" required><br>
+    
+    <label for="description">Descripción:</label>
+    <input type="text" id="description" name="description" required><br>
+    
+    <label for="code">Código:</label>
+    <input type="text" id="code" name="code" required><br>
+    
+    <label for="price">Precio:</label>
+    <input type="number" id="price" name="price" required><br>
+    
+    <label for="stock">Stock:</label>
+    <input type="number" id="stock" name="stock" required><br>
+    
+    <label for="category">Categoría:</label>
+    <input type="text" id="category" name="category" required><br>
+    
+    <label for="thumbnails">Thumbnails:</label>
+    <input type="text" id="thumbnails" name="thumbnails"><br>
+    
+    <button type="submit">Agregar Producto</button>
+</form>
+
+<script>
+    document.getElementById('productForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const formData = new FormData(e.target);
+        const product = Object.fromEntries(formData);
+
+        const response = await fetch('/api/products', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(product),
+        });
+
+        if (response.ok) {
+            alert('Producto agregado exitosamente');
+            e.target.reset();
+        } else {
+            alert('Error al agregar producto');
+        }
+    });
+</script>
+
+
+
+
+
+
+
+
+
+views/realtimeproducts.handlebars
+<h1>Productos en Tiempo Real</h1>
+<ul id="productList"></ul>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const socket = io();
+    const productList = document.getElementById('productList');
+
+    socket.on('updateProducts', (productos) => {
+        productList.innerHTML = '';
+        productos.forEach(product => {
+            const li = document.createElement('li');
+            li.textContent = `${product.title} - ${product.description}`;
+            productList.appendChild(li);
+        });
+    });
+</script>
+
+
+
+
+
+
+
+
+carritos.json:
+[]
+
+
+
+
+
+
+
+productos.json:
+[
+  {
+    "id": 1,
+    "title": "1",
+    "description": "1",
+    "code": "1",
+    "price": "1",
+    "status": true,
+    "stock": "1",
+    "category": "1",
+    "thumbnails": "1"
+  },
+  {
+    "id": 2,
+    "title": "2",
+    "description": "2",
+    "code": "2",
+    "price": "2",
+    "status": true,
+    "stock": "2",
+    "category": "2",
+    "thumbnails": "2"
+  },
+  {
+    "id": 3,
+    "title": "3",
+    "description": "3",
+    "code": "3",
+    "price": "3",
+    "status": true,
+    "stock": "3",
+    "category": "3",
+    "thumbnails": "3"
+  },
+  {
+    "id": 4,
+    "title": "4",
+    "description": "4",
+    "code": "4",
+    "price": "4",
+    "status": true,
+    "stock": "4",
+    "category": "4",
+    "thumbnails": "4"
+  }
+]
