@@ -1,3 +1,15 @@
+Estructura:
+package.json
+carritos.json
+productos.json
+src/app.js
+src/routes/carts.router.js
+src/routes/products.router.js
+views/form.handlebars
+views/realtimeproducts.handlebars
+views/layouts/main.handlebars
+
+
 package.json:
 {
   "name": "version1",
@@ -24,66 +36,89 @@ package.json:
 
 
 
+carritos.json:
+[]
+
+
+
+
+
+
+
+productos.json:
+[]
+
+
+
+
+
+
+
+
+
+
 src/app.js:
 import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { engine } from 'express-handlebars';
-import { Server as HttpServer } from 'http';
-import { Server as IoServer } from 'socket.io';
-import productsRouter, { productos } from './routes/products.router.js'; // Importa productos
+import productsRouter from './routes/products.router.js';
 import cartsRouter from './routes/carts.router.js';
 
-const app = express();
-const httpServer = new HttpServer(app);
-const io = new IoServer(httpServer);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// Middleware
+const app = express();
+const server = createServer(app);
+const io = new Server(server);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public'));
 
-// Configuración de handlebars
-app.engine('handlebars', engine({
-    extname: '.handlebars',
-    defaultLayout: 'main',
-}));
+// Configuración de Handlebars
+app.engine('handlebars', engine());
 app.set('view engine', 'handlebars');
-app.set('views', './views');
+app.set('views', path.join(__dirname, '../views'));
 
-// Rutas
+app.use(express.static(path.join(__dirname, '../public')));
+
 app.use('/api/products', productsRouter);
 app.use('/api/carts', cartsRouter);
 
-// Rutas para vistas
-app.get('/form', (req, res) => {
-    res.render('form');
-});
+let productos = [];
 
+// Rutas para las vistas
 app.get('/realtimeproducts', (req, res) => {
     res.render('realtimeproducts');
 });
 
-// Configura el servidor para escuchar
-httpServer.listen(8080, () => {
-    console.log('Server is running on port 8080');
+app.get('/form', (req, res) => {
+    res.render('form');
 });
 
-// Socket.io
 io.on('connection', (socket) => {
     console.log('New client connected');
 
-    // Envía la lista de productos al cliente
     socket.emit('updateProducts', productos);
 
     socket.on('addProduct', (product) => {
         productos.push(product);
-        io.emit('updateProducts', productos); // Emite la actualización a todos los clientes
+        io.emit('updateProducts', productos);
     });
 
     socket.on('deleteProduct', (productId) => {
         productos = productos.filter(product => product.id !== productId);
-        io.emit('updateProducts', productos); // Emite la actualización a todos los clientes
+        io.emit('updateProducts', productos);
     });
 });
+
+const port = 8080;
+server.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
+});
+
 
 
 
@@ -97,7 +132,7 @@ io.on('connection', (socket) => {
 
 src/routes/carts.router.js:
 import express from 'express';
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 
 const router = express.Router();
 
@@ -202,13 +237,14 @@ export default router;
 
 
 
+
 src/routes/products.router.js:
 import express from 'express';
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 
 const router = express.Router();
 
-export let productos = [];
+let productos = [];
 let currentId = 1;
 
 async function readProductos() {
@@ -326,13 +362,14 @@ export default router;
 
 
 
+
 views/layouts/main.handlebars:
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>{{title}}</title>
 </head>
 <body>
     {{{body}}}
@@ -349,54 +386,52 @@ views/layouts/main.handlebars:
 
 
 
+
 views/form.handlebars:
-<h1>Agregar Producto</h1>
-<form id="productForm">
-    <label for="title">Título:</label>
-    <input type="text" id="title" name="title" required><br>
-    
-    <label for="description">Descripción:</label>
-    <input type="text" id="description" name="description" required><br>
-    
-    <label for="code">Código:</label>
-    <input type="text" id="code" name="code" required><br>
-    
-    <label for="price">Precio:</label>
-    <input type="number" id="price" name="price" required><br>
-    
-    <label for="stock">Stock:</label>
-    <input type="number" id="stock" name="stock" required><br>
-    
-    <label for="category">Categoría:</label>
-    <input type="text" id="category" name="category" required><br>
-    
-    <label for="thumbnails">Thumbnails:</label>
-    <input type="text" id="thumbnails" name="thumbnails"><br>
-    
-    <button type="submit">Agregar Producto</button>
-</form>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulario de Producto</title>
+</head>
+<body>
+    <h1>Agregar Producto</h1>
+    <form id="productForm">
+        <input type="text" id="title" placeholder="Título" required>
+        <input type="text" id="description" placeholder="Descripción" required>
+        <input type="text" id="code" placeholder="Código" required>
+        <input type="number" id="price" placeholder="Precio" required>
+        <input type="number" id="stock" placeholder="Stock" required>
+        <input type="text" id="category" placeholder="Categoría" required>
+        <button type="submit">Agregar Producto</button>
+    </form>
 
-<script>
-    document.getElementById('productForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
 
-        const formData = new FormData(e.target);
-        const product = Object.fromEntries(formData);
+        const form = document.getElementById('productForm');
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
 
-        const response = await fetch('/api/products', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(product),
+            const product = {
+                id: Date.now(),
+                title: document.getElementById('title').value,
+                description: document.getElementById('description').value,
+                code: document.getElementById('code').value,
+                price: parseFloat(document.getElementById('price').value),
+                stock: parseInt(document.getElementById('stock').value),
+                category: document.getElementById('category').value,
+            };
+
+            socket.emit('addProduct', product);
+            form.reset();
         });
+    </script>
+</body>
+</html>
 
-        if (response.ok) {
-            alert('Producto agregado exitosamente');
-            e.target.reset();
-        } else {
-            alert('Error al agregar producto');
-        }
-    });
-</script>
 
 
 
@@ -413,7 +448,7 @@ views/realtimeproducts.handlebars
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Productos en Tiempo Real</title>
 </head>
 <body>
     <h1>Productos en Tiempo Real</h1>
@@ -424,22 +459,26 @@ views/realtimeproducts.handlebars
         const socket = io();
         const productList = document.getElementById('productList');
 
-        // Función para actualizar la lista de productos
         function updateProductList(productos) {
             productList.innerHTML = '';
             productos.forEach(product => {
                 const li = document.createElement('li');
-                li.textContent = `${product.title} - ${product.description}`;
+                li.innerHTML = `
+                    ${product.title} - ${product.description}
+                    <button onclick="deleteProduct(${product.id})">Eliminar</button>
+                `;
                 productList.appendChild(li);
             });
         }
 
-        // Escucha el evento 'updateProducts' y actualiza la lista
+        function deleteProduct(productId) {
+            socket.emit('deleteProduct', productId);
+        }
+
         socket.on('updateProducts', (productos) => {
             updateProductList(productos);
         });
 
-        // Solicita la lista de productos al cargar la página
         socket.emit('requestProducts');
     </script>
 </body>
@@ -454,37 +493,4 @@ views/realtimeproducts.handlebars
 
 
 
-carritos.json:
-[]
 
-
-
-
-
-
-
-productos.json:
-[
-  {
-    "id": 1,
-    "title": "titulo",
-    "description": "descripcion",
-    "code": "codigo",
-    "price": "123",
-    "status": true,
-    "stock": "321",
-    "category": "categoria",
-    "thumbnails": "thu"
-  },
-  {
-    "id": 2,
-    "title": "2",
-    "description": "2",
-    "code": "2",
-    "price": "2",
-    "status": true,
-    "stock": "2",
-    "category": "2",
-    "thumbnails": "2"
-  }
-]
